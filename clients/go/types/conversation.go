@@ -178,6 +178,9 @@ type UserInput struct {
 
 	// Files lists file paths included with the input.
 	Files []string `msgpack:"2" json:"files,omitempty"`
+
+	// Synthetic means programmatically injected.
+	Synthetic bool `msgpack:"3" json:"synthetic,omitempty"`
 }
 
 // =============================================================================
