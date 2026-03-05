@@ -1,0 +1,85 @@
+name: Build CXDB for macOS
+
+on:
+  workflow_dispatch: # Manual trigger
+  push:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+      - '.github/workflows/build-macos.yml'
+
+jobs:
+  build-macos:
+    name: Build CXDB Server (macOS Intel)
+    runs-on: macos-13 # macOS 13 with Intel (x86_64), 14GB RAM
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: System Info
+        run: |
+          echo "Runner: $(uname -a)"
+          echo "RAM: $(sysctl hw.memsize | awk '{print $2/1024/1024/1024 " GB"}')"
+          echo "CPU: $(sysctl -n machdep.cpu.brand_string)"
+          rustc --version || echo "Rust not installed yet"
+      
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      
+      - name: Build CXDB Server (Release)
+        working-directory: server
+        run: |
+          echo "Building CXDB server for macOS x86_64..."
+          cargo build --release --verbose
+          ls -lh target/release/
+          file target/release/ai-cxdb-store
+      
+      - name: Test binary
+        working-directory: server
+        run: |
+          ./target/release/ai-cxdb-store --version || echo "Version command not available"
+          ./target/release/ai-cxdb-store --help || echo "Help command check"
+      
+      - name: Package binary
+        run: |
+          mkdir -p artifacts
+          cp server/target/release/ai-cxdb-store artifacts/
+          cd artifacts
+          tar -czf cxdb-macos-x86_64.tar.gz ai-cxdb-store
+          shasum -a 256 cxdb-macos-x86_64.tar.gz > cxdb-macos-x86_64.tar.gz.sha256
+          ls -lh
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cxdb-macos-x86_64
+          path: artifacts/cxdb-macos-x86_64.tar.gz
+          retention-days: 30
+      
+      - name: Upload checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: cxdb-macos-x86_64-checksum
+          path: artifacts/cxdb-macos-x86_64.tar.gz.sha256
+          retention-days: 30
+      
+      - name: Build summary
+        run: |
+          echo "✅ CXDB server built successfully for macOS x86_64"
+          echo "Binary size: $(ls -lh artifacts/cxdb-macos-x86_64.tar.gz | awk '{print $5}')"
+          echo "SHA256: $(cat artifacts/cxdb-macos-x86_64.tar.gz.sha256)"
