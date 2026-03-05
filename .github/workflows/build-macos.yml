@@ -1,12 +1,7 @@
 name: Build CXDB for macOS
 
 on:
-  workflow_dispatch: # Manual trigger
-  push:
-    branches: [ main ]
-    paths:
-      - 'server/**'
-      - '.github/workflows/build-macos.yml'
+  workflow_dispatch: # Manual trigger only
 
 jobs:
   build-macos:
