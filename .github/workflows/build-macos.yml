@@ -37,23 +37,23 @@ jobs:
             ${{ runner.os }}-cargo-
       
       - name: Build CXDB Server (Release)
-        working-directory: server
         run: |
           echo "Building CXDB server for macOS x86_64..."
+          cd server
           cargo build --release --verbose
+          cd ..
           ls -lh target/release/
-          file target/release/ai-cxdb-store
+          file target/release/cxdb-server
       
       - name: Test binary
-        working-directory: server
         run: |
-          ./target/release/ai-cxdb-store --version || echo "Version command not available"
-          ./target/release/ai-cxdb-store --help || echo "Help command check"
+          ./target/release/cxdb-server --version || echo "Binary info"
+          ./target/release/cxdb-server --help 2>&1 | head -10 || echo "Help shown"
       
       - name: Package binary
         run: |
           mkdir -p artifacts
-          cp server/target/release/ai-cxdb-store artifacts/
+          cp target/release/cxdb-server artifacts/ai-cxdb-store
           cd artifacts
           tar -czf cxdb-macos-x86_64.tar.gz ai-cxdb-store
           shasum -a 256 cxdb-macos-x86_64.tar.gz > cxdb-macos-x86_64.tar.gz.sha256
