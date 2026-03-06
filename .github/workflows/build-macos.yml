@@ -6,7 +6,7 @@ on:
 jobs:
   build-macos:
     name: Build CXDB Server (macOS Intel)
-    runs-on: macos-latest # Latest macOS with Intel (x86_64)
+    runs-on: macos-13 # Intel x86_64 runner
     
     steps:
       - name: Checkout repository
