@@ -5,8 +5,8 @@ on:
 
 jobs:
   build-macos:
-    name: Build CXDB Server (macOS Intel)
-    runs-on: macos-13 # Intel x86_64 runner
+    name: Build CXDB Server (macOS Intel x86_64)
+    runs-on: macos-13 # Request macOS 13 runner
     
     steps:
       - name: Checkout repository
@@ -17,45 +17,40 @@ jobs:
           echo "Runner: $(uname -a)"
           echo "RAM: $(sysctl hw.memsize | awk '{print $2/1024/1024/1024 " GB"}')"
           echo "CPU: $(sysctl -n machdep.cpu.brand_string)"
-          rustc --version || echo "Rust not installed yet"
+          echo "Arch: $(uname -m)"
       
-      - name: Install Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
-      
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            server/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-      
-      - name: Build CXDB Server (Release)
+      - name: Install Rust toolchain (x86_64)
         run: |
+          # Install Rust for x86_64 explicitly
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+          source "$HOME/.cargo/env"
+          rustup target add x86_64-apple-darwin
+          rustc --version
+          cargo --version
+      
+      - name: Build CXDB Server (Release, x86_64)
+        run: |
+          source "$HOME/.cargo/env"
           echo "Building CXDB server for macOS x86_64..."
           cd server
-          cargo build --release --verbose
+          cargo build --release --target x86_64-apple-darwin --verbose
           cd ..
-          ls -lh target/release/
-          file target/release/cxdb-server
+          ls -lh target/x86_64-apple-darwin/release/
+          file target/x86_64-apple-darwin/release/cxdb-server
       
-      - name: Test binary
+      - name: Verify Intel architecture
         run: |
-          # Just verify binary exists and is executable
-          ls -lh target/release/cxdb-server
-          file target/release/cxdb-server
-          echo "Binary verified, skipping interactive tests"
+          file target/x86_64-apple-darwin/release/cxdb-server | grep "x86_64"
+          if [ $? -ne 0 ]; then
+            echo "ERROR: Binary is not x86_64!"
+            exit 1
+          fi
+          echo "✅ Verified: Binary is x86_64"
       
       - name: Package binary
         run: |
           mkdir -p artifacts
-          cp target/release/cxdb-server artifacts/ai-cxdb-store
+          cp target/x86_64-apple-darwin/release/cxdb-server artifacts/ai-cxdb-store
           cd artifacts
           tar -czf cxdb-macos-x86_64.tar.gz ai-cxdb-store
           shasum -a 256 cxdb-macos-x86_64.tar.gz > cxdb-macos-x86_64.tar.gz.sha256
@@ -80,3 +75,4 @@ jobs:
           echo "✅ CXDB server built successfully for macOS x86_64"
           echo "Binary size: $(ls -lh artifacts/cxdb-macos-x86_64.tar.gz | awk '{print $5}')"
           echo "SHA256: $(cat artifacts/cxdb-macos-x86_64.tar.gz.sha256)"
+          echo "Architecture: $(file artifacts/ai-cxdb-store)"
